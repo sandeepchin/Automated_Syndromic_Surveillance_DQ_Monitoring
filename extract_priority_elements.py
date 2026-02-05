@@ -81,7 +81,67 @@ def analyze_race(race_sub: pd.DataFrame):
     race_pivoted.loc[:,'percent_of_total_visits'] = [round(v*100/total_visits,2) for v in race_pivoted.loc[:,'num_visits']]
 
     race_pivoted.to_csv('output/race_breakdown.csv')
- 
+
+# A function to remove duplicates on a case by case basis 
+def remove_duplicates(df_dupes):
+    # Remove all QMC visits since visits are related to child facilities
+    df_dupes = df_dupes[df_dupes['HospitalName']!="HI-The Queen's Medical Center"]
+
+    # Convert C_Visit_Date_Time to a date object
+    df_dupes.loc[:,'C_Visit_Date_Time'] = [datetime.strptime(d,'%Y-%m-%d %H:%M:%S.%f') for d in df_dupes.loc[:,'C_Visit_Date_Time']]
+
+    #For Hilo - keep the latest visit date
+    df_hilo = df_dupes[df_dupes['HospitalName']=='HI-Hilo Medical Center']
+    # Use transform() to get a rank for each row of the group based on visit_date_time 
+    # transform() takes a series and returns a series as opposed to apply() which takes a dataframe returns a dataframe and may not have a rank for each row of the group
+    # Prev method for verfication
+    #df_hilo.loc[:,'order'] = df_hilo.groupby(['C_Unique_Patient_ID','Visit_ID','C_Patient_Class'])['C_Visit_Date_Time'].transform(lambda x: x.rank())
+    #df_hilo = df_hilo[df_hilo['order']>=2]
+
+    # Pick the rows that match with the max value for visit date time
+    max_idx =  df_hilo.groupby(['C_Unique_Patient_ID','Visit_ID','C_Patient_Class'])['C_Visit_Date_Time'].transform(max)==df_hilo['C_Visit_Date_Time']
+    #print('max_index',max_idx)
+
+    #df_hilo[max_idx].to_csv('output/hilo_order.csv',index=False)
+    df_hilo = df_hilo[max_idx]
+    print('df_hilo size:',len(df_hilo))
+
+    #For Kau and Honokaa - keep the latest visit date
+    df_kau = df_dupes[df_dupes['HospitalName']=="HI-Ka'u Hospital"]
+    # Another way instead of max is to sort by visit times and keep the last duplicate since that is the latest time
+    # Drawback: Will not return all rows in case of a tie
+    df_kau = df_kau.sort_values('C_Visit_Date_Time').drop_duplicates(['C_Unique_Patient_ID','Visit_ID','C_Patient_Class'],keep='last')
+    print('df_kau size: ',len(df_kau))
+    
+    #For Honokaa - keep the latest visit date
+    df_honokaa = df_dupes[df_dupes['HospitalName']=="HI-Honoka'a Hospital"]
+    df_honokaa = df_honokaa.sort_values('C_Visit_Date_Time').drop_duplicates(['C_Unique_Patient_ID','Visit_ID','C_Patient_Class'],keep='last')
+    print('df_honokaa size',len(df_honokaa))
+
+    # Kuakini - keep the latest visit date
+    df_kuakini = df_dupes[df_dupes['HospitalName']=='HI-Kuakini Medical Center']
+    df_kuakini = df_kuakini.sort_values('C_Visit_Date_Time').drop_duplicates(['C_Unique_Patient_ID','Visit_ID','C_Patient_Class'],keep='last')
+    print('df_kuakini size',len(df_kuakini))
+  
+    # For Straub and HPH Urgent cares - drop the empty diagnosis
+    df_hph = df_dupes[df_dupes['HospitalName'].isin (['HI-Straub Clinic and Hospital','HI-Urgent Care - Straub Clinic Sheraton',
+                                                   'HI-Urgent Care - Kahala Clinic and Urgent Care','HI-Urgent Care - Ward Village Clinic and Urgent Care'])]
+    df_hph = df_hph[df_hph['DischargeDiagnosis']!='']
+    print('df_hph size',len(df_hph))
+    
+    # West Oahu and Wahiawa
+    df_west_oahu_wahiawa = df_dupes[df_dupes['HospitalName'].isin(['HI-Queens Medical Center West Oahu','HI-Wahiawa General Hospital'])]
+    print('df_west_oahu_wahiawa size',len(df_west_oahu_wahiawa))
+    
+    # Combine all of them
+    df_all = pd.concat([df_hilo,df_kau,df_honokaa,df_kuakini,df_hph,df_west_oahu_wahiawa])
+    print('df_all size',len(df_all))
+
+    df_all.to_csv('output/non_duplicates.csv',index=False)
+    return df_all
+
+
+
 
 def main():
     # Determine a time period
@@ -120,16 +180,23 @@ def main():
     print('# of Overall Duplicates',len(api_data[api_data.duplicated()]))
 
     # Determine if there are duplicate rows based on visit id, patient id, facility and patient class
-    df_duplicates = api_data[api_data.duplicated(['HospitalName','C_Unique_Patient_ID',"Visit_ID",'C_Patient_Class','DischargeDiagnosis'],keep=False)]
+    df_duplicates = api_data[api_data.duplicated(['C_Unique_Patient_ID','Visit_ID','C_Patient_Class'],keep=False)]
 
-    print('# of duplicate patient and visit ids',len(df_duplicates))
+    print('# of duplicate patient id, visit id, patient class pairs',len(df_duplicates))
 
-    print(df_duplicates.loc[:,'HospitalName'].value_counts(dropna=False))
+    df_duplicates[['HospitalName','C_Unique_Patient_ID','C_Visit_Date_Time',"Visit_ID",'C_Patient_Class','DischargeDiagnosis']].to_csv('output/duplicates.csv',index=False)
 
-    # Drop any of the duplicates
-    api_data = api_data.drop_duplicates(['HospitalName','C_Unique_Patient_ID',"Visit_ID",'C_Patient_Class','DischargeDiagnosis'])
+    print('List of facilities with duplicates\n',df_duplicates.loc[:,'HospitalName'].value_counts(dropna=False))
 
-    print('Number of rows after dropping duplicates',len(api_data))
+    # Drop all pairs of duplicates
+    api_data = api_data.drop_duplicates(['C_Unique_Patient_ID','Visit_ID','C_Patient_Class'],keep=False)
+    print('Number of rows after dropping duplicate pairs',len(api_data))
+    # Obtain the set that is duplicate free
+    dup_free=remove_duplicates(df_duplicates)
+    api_data = pd.concat([api_data,dup_free])
+    api_data=api_data.reset_index(drop=True)
+    print(api_data)
+    print('Number of rows after adding back one from each pair',len(api_data))
 
     # Start grouping by hospital name and data element to identify completeness
 
