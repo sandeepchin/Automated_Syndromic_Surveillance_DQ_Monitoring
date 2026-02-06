@@ -14,10 +14,13 @@ import requests
 #race mapping
 map_dict ={'1002-5':'American Indian or Alaska Native',
            '2028-9':'Asian',
+           '2029-7':'Asian Indian',
            '2054-5':'Black or African American',
            '2076-8':'Native Hawaiian or Pacific Islander',
            '2079-2':'Native Hawaiian',
            '2106-3':'White',
+           '2113-9':'White', # Irish
+           '2114-7':'White', # Italian
            '2131-1':'Other',
            '2034-7':'Chinese',
            '2036-2':'Filipino',
@@ -33,6 +36,10 @@ map_dict ={'1002-5':'American Indian or Alaska Native',
            '2148-5':'Mexican',
            '2180-8':'Puerto Rican',
            '2500-7':'Other Pacific Islander',
+           '2081-8':'Tahitian',
+           '2086-7':'Guamanian or Chamorro',
+           '2129-5':'Arab',
+           '2041-2':'Laotian',
            'NR':'Not Reported',
            'UNK':'Unknown'
            }
@@ -84,9 +91,7 @@ def analyze_race(race_sub: pd.DataFrame):
 
 # A function to remove duplicates on a case by case basis 
 def remove_duplicates(df_dupes):
-    # Remove all QMC visits since visits are related to child facilities
-    df_dupes = df_dupes[df_dupes['HospitalName']!="HI-The Queen's Medical Center"]
-
+    
     # Convert C_Visit_Date_Time to a date object
     df_dupes.loc[:,'C_Visit_Date_Time'] = [datetime.strptime(d,'%Y-%m-%d %H:%M:%S.%f') for d in df_dupes.loc[:,'C_Visit_Date_Time']]
 
@@ -94,7 +99,7 @@ def remove_duplicates(df_dupes):
     df_hilo = df_dupes[df_dupes['HospitalName']=='HI-Hilo Medical Center']
     # Use transform() to get a rank for each row of the group based on visit_date_time 
     # transform() takes a series and returns a series as opposed to apply() which takes a dataframe returns a dataframe and may not have a rank for each row of the group
-    # Prev method for verfication
+    # Prev method for verification
     #df_hilo.loc[:,'order'] = df_hilo.groupby(['C_Unique_Patient_ID','Visit_ID','C_Patient_Class'])['C_Visit_Date_Time'].transform(lambda x: x.rank())
     #df_hilo = df_hilo[df_hilo['order']>=2]
 
@@ -123,18 +128,19 @@ def remove_duplicates(df_dupes):
     df_kuakini = df_kuakini.sort_values('C_Visit_Date_Time').drop_duplicates(['C_Unique_Patient_ID','Visit_ID','C_Patient_Class'],keep='last')
     print('df_kuakini size',len(df_kuakini))
   
-    # For Straub and HPH Urgent cares - drop the empty diagnosis
+    # For Straub and HPH Urgent cares, all have same visit date times, so drop the empty diagnosis
     df_hph = df_dupes[df_dupes['HospitalName'].isin (['HI-Straub Clinic and Hospital','HI-Urgent Care - Straub Clinic Sheraton',
                                                    'HI-Urgent Care - Kahala Clinic and Urgent Care','HI-Urgent Care - Ward Village Clinic and Urgent Care'])]
     df_hph = df_hph[df_hph['DischargeDiagnosis']!='']
     print('df_hph size',len(df_hph))
     
-    # West Oahu and Wahiawa
-    df_west_oahu_wahiawa = df_dupes[df_dupes['HospitalName'].isin(['HI-Queens Medical Center West Oahu','HI-Wahiawa General Hospital'])]
-    print('df_west_oahu_wahiawa size',len(df_west_oahu_wahiawa))
+    # QMC punchbowl,West Oahu, and Wahiawa - all of them are transfers from Wahiawa to QMC/WO and WO to QMC. We have ED to ED as well as Inpatient to Inpatient transfers
+    # So keeping all of them
+    df_qmc_wo_wahiawa = df_dupes[df_dupes['HospitalName'].isin(["HI-The Queen's Medical Center",'HI-Queens Medical Center West Oahu','HI-Wahiawa General Hospital'])]
+    print('df_qmc_wo_wahiawa size',len(df_qmc_wo_wahiawa))
     
     # Combine all of them
-    df_all = pd.concat([df_hilo,df_kau,df_honokaa,df_kuakini,df_hph,df_west_oahu_wahiawa])
+    df_all = pd.concat([df_hilo,df_kau,df_honokaa,df_kuakini,df_hph,df_qmc_wo_wahiawa])
     print('df_all size',len(df_all))
 
     df_all.to_csv('output/non_duplicates.csv',index=False)
