@@ -14,7 +14,7 @@ import requests
 #race mapping
 map_dict ={'1002-5':'American Indian or Alaska Native',
            '2028-9':'Asian',
-           '2029-7':'Asian Indian',
+           '2029-7':'Asian', # Asian Indian
            '2054-5':'Black or African American',
            '2076-8':'Native Hawaiian or Pacific Islander',
            '2079-2':'Native Hawaiian',
@@ -26,20 +26,20 @@ map_dict ={'1002-5':'American Indian or Alaska Native',
            '2036-2':'Filipino',
            '2039-6':'Japanese',
            '2040-4':'Korean',
-           '2046-1':'Thai',
-           '2047-9':'Vietnamese',
+           '2046-1':'Asian', # Thai
+           '2047-9':'Asian', # Vietnamese
            '2080-0':'Samoan',
-           '2082-6':'Tongan',
+           '2082-6':'Tongan', 
            '2085-9':'Other Micronesian',
-           '2090-9':'Marshallese',
-           '2135-2':'Other Hispanic or Latino',
-           '2148-5':'Mexican',
-           '2180-8':'Puerto Rican',
-           '2500-7':'Other Pacific Islander',
-           '2081-8':'Tahitian',
-           '2086-7':'Guamanian or Chamorro',
-           '2129-5':'Arab',
-           '2041-2':'Laotian',
+           '2090-9':'Marshallese', 
+           '2135-2':'Hispanic or Latino', # Other Hispanic or Latino
+           '2148-5':'Hispanic or Latino', # Mexican
+           '2180-8':'Hispanic or Latino', # Puerto Rican
+           '2500-7':'Pacific Islander', # Other Pacific Islander
+           '2081-8':'Pacific Islander', # Tahitian
+           '2086-7':'Pacific Islander', # Guamanian or Chamorro
+           '2129-5':'Asian', # Arab
+           '2041-2':'Asian', # Laotian
            'NR':'Not Reported',
            'UNK':'Unknown'
            }
@@ -240,7 +240,7 @@ def main():
     api_data_pivoted = api_data_pivoted.reset_index()
     priority1 = api_data_pivoted[['HospitalName','Admit_Date_Time', 'ChiefComplaintOrig',
        'DischargeDiagnosis', 'Age', 'C_Patient_Class', 'Facility_Type_Code',
-       'C_Patient_County', 'C_FacType_Patient_Class', 'C_Patient_Class',
+       'C_Patient_County', 'C_FacType_Patient_Class', 
        'Visit_ID', 'C_Unique_Patient_ID', 'Patient_Zip', 'C_Death',
        'Treating_Facility_ID', 'Sending_Facility_ID', 'Trigger_Event',]]
 
